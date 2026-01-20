@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Japan Winter Trip</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue.js 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'snow-blue': '#E3F2FD',
+                        'ice-blue': '#BBDEFB',
+                        'deep-blue': '#1565C0',
+                        'text-dark': '#37474F',
+                        'text-light': '#78909C',
+                        'accent': '#FF7043',
+                        'card-blue': '#0D47A1'
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #E3F2FD;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .blue-card {
+            background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+            color: white;
+        }
+
+        .category-badge {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 999px;
+            font-weight: bold;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-5px);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .draggable-item {
+            cursor: grab;
+        }
+
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+
+        .fade-enter-active,
+        .fade-leave-active {
+            transition: opacity 0.2s;
+        }
+
+        .fade-enter-from,
+        .fade-leave-to {
+            opacity: 0;
+        }
+
+        .spin {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="text-text-dark">
+    <div id="app" class="max-w-md mx-auto min-h-screen bg-snow-blue shadow-2xl relative overflow-hidden flex flex-col">
+
+        <!-- Header Section -->
+        <header class="relative z-10 shrink-0">
+            <!-- Banner Image Container - Fixed Height 300px -->
+            <div class="h-[300px] w-full overflow-hidden relative">
+                <img src="./images/banner.png?v=3" alt="Travel Banner" class="w-full h-full object-cover object-bottom">
+
+                <!-- Floating Tabs -->
+                <div class="absolute bottom-12 right-4 flex space-x-3">
+                    <button v-for="tab in tabs" :key="tab.id" @click="currentTab = tab.id" :class="[
+                            'w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-95 border-2',
+                            currentTab === tab.id ? 'bg-deep-blue text-white border-white scale-110' : 'bg-white text-text-light border-transparent'
+                        ]">
+                        <i :class="tab.icon + ' text-lg'"></i>
+                    </button>
+                    <!-- Sync Indicator -->
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-2 bg-white/90 backdrop-blur"
+                        :class="syncStatus === 'error' ? 'border-red-400 text-red-500' : 'border-transparent text-deep-blue'">
+                        <i v-if="syncStatus === 'syncing'" class="fas fa-sync-alt spin"></i>
+                        <i v-else-if="syncStatus === 'success'" class="fas fa-cloud-check text-green-500"></i>
+                        <i v-else-if="syncStatus === 'error'" class="fas fa-exclamation-triangle"
+                            @click="syncToCloud"></i>
+                        <i v-else class="fas fa-cloud text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="absolute bottom-0 left-0 w-full h-12 bg-snow-blue rounded-t-[40px] translate-y-1"></div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="relative z-20 px-4 pb-24 -mt-2 flex-grow overflow-y-auto hide-scrollbar">
+
+            <!-- Tab 1: Itinerary -->
+            <transition name="fade" mode="out-in">
+                <div v-if="currentTab === 'itinerary'" key="itinerary">
+                    <!-- Date Selector -->
+                    <div
+                        class="flex overflow-x-auto hide-scrollbar space-x-4 pb-4 mb-2 sticky top-0 bg-snow-blue/90 z-30 pt-2 backdrop-blur-sm">
+                        <button v-for="(day, index) in days" :key="index" @click="currentDayIndex = index" :class="[
+                                'flex flex-col items-center min-w-[60px] p-2 rounded-2xl transition-colors',
+                                currentDayIndex === index ? 'bg-deep-blue text-white shadow-md' : 'bg-white text-text-light'
+                            ]">
+                            <span class="text-xs opacity-80">{{ day.weekday }}</span>
+                            <span class="text-xl font-bold">{{ day.date }}</span>
+                        </button>
+                    </div>
+
+                    <!-- Weather -->
+                    <div
+                        class="bg-gradient-to-r from-blue-400 to-blue-300 text-white p-4 rounded-2xl shadow-lg mb-6 flex items-center justify-between">
+                        <div>
+                            <div class="text-3xl font-bold flex items-center"><i class="fas fa-snowflake mr-3"></i> -2°C
+                            </div>
+                            <div class="text-sm opacity-90">體感 -5°C | 湯澤町</div>
+                        </div><i class="fas fa-cloud-snow text-4xl opacity-80"></i>
+                    </div>
+
+                    <!-- List -->
+                    <div class="space-y-0" @dragover.prevent @drop="drop($event)">
+                        <div v-for="(item, index) in currentDayItinerary" :key="item.id" class="relative"
+                            draggable="true" @dragstart="dragStart($event, index)" @dragend="dragEnd($event)"
+                            @drop="drop($event, index)">
+
+                            <!-- Travel Connector -->
+                            <div class="flex flex-col items-center py-2 relative group cursor-pointer"
+                                @click="toggleTransEdit(index)">
+                                <div class="h-3 w-0.5 bg-gray-300"></div>
+                                <div
+                                    class="bg-gray-100 px-3 py-1 rounded-full text-[10px] text-gray-500 flex items-center shadow-sm border border-gray-200">
+                                    <i
+                                        :class="['fas mr-1', item.transMode === 'walk' ? 'fa-walking' : item.transMode === 'train' ? 'fa-subway' : 'fa-car']"></i>
+                                    {{ item.transTime || '15 min' }}
+                                </div>
+                                <div class="h-3 w-0.5 bg-gray-300"></div>
+
+                                <div v-if="editingTransTime && editingTransTime.index === index"
+                                    class="absolute top-8 z-50 bg-white p-3 rounded-xl shadow-xl border border-gray-100 flex gap-2 items-center animate-fade"
+                                    @click.stop>
+                                    <div class="text-xs text-gray-400 whitespace-nowrap">從 {{ getPrevLocationName(index)
+                                        }}</div>
+                                    <input v-model="item.transTime"
+                                        class="w-16 bg-gray-50 border rounded p-1 text-xs text-center"
+                                        placeholder="15 min">
+                                    <select v-model="item.transMode" class="bg-gray-50 border rounded p-1 text-xs">
+                                        <option value="walk">步行</option>
+                                        <option value="train">電車</option>
+                                        <option value="car">開車</option>
+                                    </select>
+                                    <button @click="editingTransTime = null" class="text-deep-blue"><i
+                                            class="fas fa-check"></i></button>
+                                </div>
+                            </div>
+
+                            <!-- Card -->
+                            <div class="glass-panel p-4 rounded-2xl shadow-sm relative overflow-hidden border-l-4 group hover:shadow-md transition-shadow draggable-item"
+                                :class="'border-' + getCategoryStyle(item.category).color.split('-')[1] + '-400'"
+                                @click="editItinerary(item)">
+
+                                <div class="flex justify-between items-start mb-2">
+                                    <div class="flex items-center space-x-2">
+                                        <div class="font-mono font-bold text-deep-blue text-lg">{{ item.time }}</div>
+                                        <div
+                                            :class="['category-badge flex items-center gap-1', getCategoryStyle(item.category).bg, getCategoryStyle(item.category).color]">
+                                            <i :class="getCategoryStyle(item.category).icon"></i>{{
+                                            getCategoryStyle(item.category).name }}
+                                        </div>
+                                    </div>
+                                    <button @click.stop="openGoogleMaps(item.name)"
+                                        class="text-blue-300 hover:text-deep-blue"><i
+                                            class="fas fa-location-arrow"></i></button>
+                                </div>
+
+                                <h3 class="font-bold text-lg text-text-dark">{{ item.name }}</h3>
+                                <div class="text-xs text-gray-500 mt-0.5"><i class="fas fa-map-marker-alt mr-1"></i>{{
+                                    item.location }}</div>
+
+                                <!-- Details -->
+                                <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600 bg-white/40 p-2 rounded-lg"
+                                    v-if="item.hours || item.ticket || item.price || item.note">
+                                    <div v-if="item.hours" class="col-span-2"><i
+                                            class="far fa-clock mr-1 text-gray-400"></i> {{ item.hours }}</div>
+                                    <div v-if="item.ticket"><i class="fas fa-ticket-alt mr-1 text-pink-400"></i> 門票: {{
+                                        item.ticket }}</div>
+                                    <div v-if="item.price"><i class="fas fa-yen-sign mr-1 text-orange-400"></i> 預算: {{
+                                        item.price }}</div>
+                                    <div v-if="item.note"
+                                        class="col-span-2 mt-1 pt-1 border-t border-gray-100 text-gray-500 italic">{{
+                                        item.note }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FAB -->
+                    <button @click="openAddItinerary"
+                        class="fixed bottom-24 right-6 w-14 h-14 bg-deep-blue text-white rounded-full shadow-2xl flex items-center justify-center text-2xl z-40 hover:scale-110 transition-transform animate-float"><i
+                            class="fas fa-plus"></i></button>
+                </div>
+            </transition>
+
+            <!-- Tab: Info -->
+            <transition name="fade" mode="out-in">
+                <div v-if="currentTab === 'info'" key="info" class="space-y-6">
+                    <h2 class="text-2xl font-bold text-deep-blue mb-4">旅遊資訊</h2>
+                    <!-- Rate -->
+                    <div class="blue-card p-6 rounded-3xl shadow-xl relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 text-white/10 text-9xl"><i class="fas fa-yen-sign"></i>
+                        </div>
+                        <h3 class="font-bold mb-4 flex items-center text-lg relative z-10"><i
+                                class="fas fa-sync-alt mr-2 animate-spin-slow" v-if="loadingRate"></i> 匯率換算</h3>
+                        <div class="flex items-center justify-between gap-4 mb-2 relative z-10">
+                            <div class="flex-1">
+                                <div class="text-xs opacity-70 mb-1">JPY</div><input type="number"
+                                    v-model="exchangeAmount"
+                                    class="w-full bg-white/20 text-white text-xl font-bold p-3 rounded-xl border border-white/30 focus:outline-none placeholder-white/50"
+                                    placeholder="0">
+                            </div>
+                            <i class="fas fa-exchange-alt opacity-70 mt-4"></i>
+                            <div class="flex-1">
+                                <div class="text-xs opacity-70 mb-1">TWD</div>
+                                <div
+                                    class="w-full bg-white/10 text-white text-xl font-bold p-3 rounded-xl border border-white/10">
+                                    $ {{ calculatedTWD }}</div>
+                            </div>
+                        </div>
+                        <div class="text-right text-xs opacity-60 mt-2 relative z-10">匯率: {{ exchangeRate }}</div>
+                    </div>
+                    <!-- Flight -->
+                    <div class="glass-panel p-5 rounded-2xl border-l-4 border-yellow-400">
+                        <h3 class="font-bold flex items-center mb-3"><i class="fas fa-plane text-yellow-500 mr-2"></i>
+                            酷航 Scoot</h3>
+                        <div class="mb-4 pb-4 border-b border-gray-100">
+                            <div class="flex justify-between text-sm font-bold text-gray-500 mb-1">去程 1/30 (五)</div>
+                            <div class="flex justify-between items-center">
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-deep-blue">06:40</div>
+                                    <div class="text-xs text-gray-400">TPE</div>
+                                </div>
+                                <div class="flex flex-col items-center px-4"><span
+                                        class="text-xs text-blue-500 font-mono">TR898</span><i
+                                        class="fas fa-long-arrow-alt-right text-gray-300 my-1"></i></div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-deep-blue">10:45</div>
+                                    <div class="text-xs text-gray-400">NRT</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm font-bold text-gray-500 mb-1">回程 2/3 (二)</div>
+                            <div class="flex justify-between items-center">
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-deep-blue">11:45</div>
+                                    <div class="text-xs text-gray-400">NRT</div>
+                                </div>
+                                <div class="flex flex-col items-center px-4"><span
+                                        class="text-xs text-blue-500 font-mono">TR899</span><i
+                                        class="fas fa-long-arrow-alt-right text-gray-300 my-1"></i></div>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-deep-blue">15:10</div>
+                                    <div class="text-xs text-gray-400">TPE</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+            <!-- Tab: Shopping (NT$) -->
+            <transition name="fade" mode="out-in">
+                <div v-if="currentTab === 'shopping'" key="shopping">
+                    <h2 class="text-2xl font-bold text-deep-blue mb-4">購物清單</h2>
+
+                    <div v-if="!currentShoppingUser" class="grid grid-cols-1 gap-4">
+                        <div v-for="user in users" :key="user" @click="currentShoppingUser = user"
+                            class="glass-panel p-6 rounded-2xl flex items-center justify-between hover:bg-white transition-colors cursor-pointer group">
+                            <div class="flex items-center space-x-4">
+                                <div
+                                    class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-deep-blue font-bold text-xl group-hover:scale-110 transition-transform">
+                                    {{ user[0] }}</div>
+                                <div>
+                                    <div class="font-bold text-lg">{{ user }}的清單</div>
+                                    <div class="text-xs text-gray-400">{{ shoppingList[user].length }} 個項目</div>
+                                </div>
+                            </div><i class="fas fa-chevron-right text-gray-300"></i>
+                        </div>
+                    </div>
+
+                    <div v-else>
+                        <button @click="currentShoppingUser = null"
+                            class="mb-4 flex items-center text-gray-400 hover:text-deep-blue"><i
+                                class="fas fa-arrow-left mr-2"></i> 返回列表</button>
+                        <h3 class="text-xl font-bold mb-4 flex items-center"><span
+                                class="bg-deep-blue text-white text-xs px-2 py-1 rounded mr-2">{{ currentShoppingUser
+                                }}</span> 的清單</h3>
+
+                        <div class="grid grid-cols-2 gap-4 pb-20">
+                            <div v-for="(item, index) in shoppingList[currentShoppingUser]" :key="index"
+                                @click="openBoughtModal(item, index)"
+                                class="glass-panel rounded-2xl overflow-hidden relative group cursor-pointer hover:shadow-md transition-all border-2"
+                                :class="item.bought ? 'border-green-400 opacity-60' : 'border-transparent'">
+                                <div class="absolute top-2 right-2 z-10" v-if="item.bought"><i
+                                        class="fas fa-check-circle text-green-500 text-xl bg-white rounded-full"></i>
+                                </div>
+                                <button @click.stop="openEditShopping(item, index)"
+                                    class="absolute top-2 left-2 z-10 w-6 h-6 bg-white/80 rounded-full text-xs text-gray-500 flex items-center justify-center hover:bg-blue-500 hover:text-white"><i
+                                        class="fas fa-pen"></i></button>
+                                <div class="h-32 bg-gray-100 relative">
+                                    <img v-if="item.image" :src="item.image" class="w-full h-full object-cover">
+                                    <div v-else class="w-full h-full flex items-center justify-center text-gray-300"><i
+                                            class="fas fa-image text-2xl"></i></div>
+                                </div>
+                                <div class="p-3">
+                                    <div class="font-bold text-sm truncate">{{ item.name }}</div>
+                                    <!-- Use NT$ -->
+                                    <div class="flex justify-between items-center mt-1">
+                                        <div class="text-xs text-gray-400" v-if="item.price">預估 NT${{ item.price }}
+                                        </div>
+                                    </div>
+                                    <div v-if="item.boughPrice" class="text-xs text-green-600 font-bold mt-1">購入 NT${{
+                                        item.boughPrice }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <button @click="showAddShoppingModal = true"
+                            class="fixed bottom-6 right-6 w-14 h-14 bg-deep-blue text-white rounded-full shadow-2xl flex items-center justify-center text-2xl z-50 hover:scale-110 transition-transform"><i
+                                class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+            </transition>
+
+            <!-- Tab: Expenses (NT$ + Settlement) -->
+            <transition name="fade" mode="out-in">
+                <div v-if="currentTab === 'expenses'" key="expenses">
+                    <h2 class="text-2xl font-bold text-deep-blue mb-4">花費紀錄</h2>
+                    <div class="flex space-x-2 mb-6 bg-white/50 p-1 rounded-xl">
+                        <button v-for="type in ['group', 'personal']" :key="type"
+                            @click="currentExpenseTab = type; currentExpenseUser = null"
+                            :class="['flex-1 py-2 rounded-lg text-sm font-bold transition-all', currentExpenseTab === type ? 'bg-deep-blue text-white shadow' : 'text-gray-500']">{{
+                            type === 'group' ? '團體公費' : '個人花費' }}</button>
+                    </div>
+
+                    <!-- Group Expenses -->
+                    <div v-if="currentExpenseTab === 'group'">
+                        <div class="bg-gray-800 text-white p-5 rounded-2xl shadow-lg mb-6">
+                            <div class="text-sm opacity-80">團體總支出 (NT$)</div>
+                            <div class="text-4xl font-bold mt-1">NT$ {{ totalGroupExpense.toLocaleString() }}</div>
+                        </div>
+                        <div class="space-y-4">
+                            <div v-for="user in users" :key="user" class="glass-panel p-4 rounded-2xl">
+                                <div class="flex justify-between items-center mb-1">
+                                    <div class="font-bold flex items-center">
+                                        <div
+                                            class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2 text-xs text-deep-blue">
+                                            {{ user[0] }}</div>{{ user }} 預支
+                                    </div>
+                                    <div class="font-bold text-deep-blue">NT$ {{ getUserPrepaid(user).toLocaleString()
+                                        }}</div>
+                                </div>
+                                <!-- Settlement Result (New) -->
+                                <div class="mb-3 text-right">
+                                    <div class="text-xs font-bold px-2 py-1 rounded inline-block"
+                                        :class="getSettlement(user) > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'">
+                                        {{ getSettlement(user) > 0 ? '應支付' : '應收取' }} NT$ {{
+                                        Math.abs(getSettlement(user)).toLocaleString() }}
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2 border-t pt-2 border-gray-100">
+                                    <div v-for="(item, idx) in groupExpenses.filter(e => e.payer === user)" :key="idx"
+                                        class="flex justify-between text-sm">
+                                        <span class="text-gray-600">{{ item.name }}</span>
+                                        <div class="flex items-center space-x-2"><span>NT${{
+                                                Number(item.amount).toLocaleString() }}</span><button
+                                                @click="deleteGroupExpense(item)"
+                                                class="text-gray-300 hover:text-red-400"><i
+                                                    class="fas fa-times"></i></button></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Personal Expenses -->
+                    <div v-if="currentExpenseTab === 'personal'">
+                        <div v-if="!currentExpenseUser" class="grid grid-cols-1 gap-4">
+                            <div v-for="user in users" :key="user" @click="currentExpenseUser = user"
+                                class="glass-panel p-6 rounded-2xl flex items-center justify-between hover:bg-white transition-colors cursor-pointer">
+                                <div class="flex items-center space-x-4">
+                                    <div
+                                        class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold text-xl">
+                                        {{ user[0] }}</div>
+                                    <div>
+                                        <div class="font-bold text-lg">{{ user }}的花費</div>
+                                        <div class="text-xs text-gray-400">總計: NT$ {{
+                                            getPersonalTotal(user).toLocaleString() }}</div>
+                                    </div>
+                                </div><i class="fas fa-chevron-right text-gray-300"></i>
+                            </div>
+                        </div>
+                        <div v-else>
+                            <button @click="currentExpenseUser = null"
+                                class="mb-4 flex items-center text-gray-400 hover:text-deep-blue"><i
+                                    class="fas fa-arrow-left mr-2"></i> 返回列表</button>
+                            <div class="bg-green-600 text-white p-5 rounded-2xl shadow-lg mb-6">
+                                <div class="text-sm opacity-80">{{ currentExpenseUser }} 總支出 (NT$)</div>
+                                <div class="text-4xl font-bold mt-1">NT$ {{
+                                    getPersonalTotal(currentExpenseUser).toLocaleString() }}</div>
+                            </div>
+                            <div class="space-y-3">
+                                <div v-for="(item, index) in personalExpenses[currentExpenseUser]" :key="index"
+                                    class="glass-panel p-4 rounded-xl flex justify-between items-center">
+                                    <div>
+                                        <div class="font-bold text-gray-800">{{ item.name }}</div>
+                                        <div class="text-xs text-gray-400 mt-0.5">{{ item.date }}</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-bold text-lg">NT${{ Number(item.amount).toLocaleString() }}
+                                        </div><button @click="deletePersonalExpense(currentExpenseUser, index)"
+                                            class="text-xs text-red-300 p-1"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button @click="showAddExpenseModal = true"
+                        class="fixed bottom-6 right-6 w-14 h-14 bg-deep-blue text-white rounded-full shadow-2xl flex items-center justify-center text-2xl z-50 hover:scale-110 transition-transform"><i
+                            class="fas fa-plus"></i></button>
+                </div>
+            </transition>
+
+        </main>
+
+        <!-- Modals -->
+        <div v-if="showAddItineraryModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            @click.self="showAddItineraryModal = false">
+            <div class="bg-white w-[90%] max-w-md rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-xl">{{ itineraryForm.id ? '編輯行程' : '新增行程' }}</h3><button
+                        v-if="itineraryForm.id" @click="deleteItinerary"
+                        class="text-red-400 text-sm border border-red-200 px-3 py-1 rounded-full"><i
+                            class="fas fa-trash-alt mr-1"></i>刪除</button>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex space-x-2"><select v-model="itineraryForm.category"
+                            class="flex-1 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+                        </select><input type="time" v-model="itineraryForm.time"
+                            class="w-28 bg-gray-50 p-3 rounded-xl border border-gray-200 text-center"></div>
+                    <input v-model="itineraryForm.name" placeholder="名稱"
+                        class="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 font-bold">
+                    <input v-model="itineraryForm.location" placeholder="地點 / 備註"
+                        class="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 text-sm">
+                    <div v-if="['attraction', 'food', 'shopping'].includes(itineraryForm.category)"><label
+                            class="text-xs text-gray-400 ml-1">營業時間</label><input v-model="itineraryForm.hours"
+                            placeholder="09:00 - 18:00"
+                            class="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 text-sm"></div>
+                    <div v-if="itineraryForm.category === 'attraction'"><label
+                            class="text-xs text-gray-400 ml-1">門票費用</label><input v-model="itineraryForm.ticket"
+                            placeholder="¥1000" class="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 text-sm">
+                    </div>
+                    <div><label class="text-xs text-gray-400 ml-1">特色 / 備註</label><textarea v-model="itineraryForm.note"
+                            placeholder="必吃、必買..." rows="2"
+                            class="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 text-sm"></textarea></div>
+                    <div class="flex space-x-3 pt-2"><button @click="saveItinerary"
+                            class="flex-1 bg-deep-blue text-white py-3 rounded-xl font-bold shadow-lg">確認儲存</button><button
+                            @click="showAddItineraryModal = false"
+                            class="flex-none bg-gray-100 text-gray-400 px-4 rounded-xl">取消</button></div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showAddShoppingModal"
+            class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
+            @click.self="showAddShoppingModal = false">
+            <div class="bg-white w-full max-w-md rounded-t-3xl p-6 shadow-2xl animate-slide-up">
+                <h3 class="font-bold text-xl mb-4 text-center">新增購物清單 ({{ currentShoppingUser }})</h3>
+                <div class="space-y-3"><input v-model="newShoppingItem.name" placeholder="商品名稱"
+                        class="w-full p-3 bg-gray-50 rounded-xl"><input type="number" v-model="newShoppingItem.price"
+                        placeholder="預估價格 (NT$ 選填)" class="w-full p-3 bg-gray-50 rounded-xl"><input type="file"
+                        @change="handleImageUpload" class="w-full p-3 bg-gray-50 rounded-xl text-sm">
+                    <div v-if="isProcessingImage" class="text-xs text-blue-500 text-center animate-pulse">正在壓縮圖片...
+                    </div>
+                    <button @click="addShoppingItem" :disabled="isProcessingImage"
+                        class="w-full bg-deep-blue text-white py-3 rounded-xl font-bold mt-2 disabled:opacity-50">確認新增</button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showEditShoppingModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            @click.self="showEditShoppingModal = false">
+            <div class="bg-white w-[90%] max-w-sm rounded-3xl p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-xl">編輯商品</h3><button @click="deleteShoppingItem"
+                        class="text-red-400 text-sm border border-red-200 px-3 py-1 rounded-full"><i
+                            class="fas fa-trash-alt mr-1"></i>刪除</button>
+                </div>
+                <div class="space-y-3"><input v-model="editingShoppingItem.name"
+                        class="w-full p-3 bg-gray-50 rounded-xl font-bold"><input type="number"
+                        v-model="editingShoppingItem.price" placeholder="價格 (NT$)"
+                        class="w-full p-3 bg-gray-50 rounded-xl"><button @click="saveShoppingEdit"
+                        class="w-full bg-deep-blue text-white py-3 rounded-xl font-bold mt-2">儲存變更</button></div>
+            </div>
+        </div>
+
+        <div v-if="showBoughtModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            @click.self="showBoughtModal = false">
+            <div class="bg-white w-[90%] max-w-sm rounded-3xl p-6 shadow-2xl">
+                <h3 class="font-bold text-xl mb-2 text-center">{{ selectedShoppingItem?.name }}</h3>
+                <div class="text-center text-gray-500 mb-6 text-sm">標記為已購買並記帳?</div>
+                <div class="flex items-center space-x-2 mb-4 bg-gray-50 p-2 rounded-xl"><input type="checkbox"
+                        id="isBought" v-model="boughtForm.isBought" class="w-5 h-5 text-deep-blue"><label for="isBought"
+                        class="font-bold text-gray-700">我已經買到了</label></div>
+                <div v-if="boughtForm.isBought" class="mb-4 animate-fade"><label
+                        class="block text-xs text-gray-400 mb-1 ml-1">購入金額 (NT$)</label><input type="number"
+                        v-model="boughtForm.price" placeholder="NT$"
+                        class="w-full p-3 bg-gray-100 rounded-xl text-lg font-bold">
+                    <div class="text-xs text-green-600 mt-2"><i class="fas fa-check"></i> 將自動加入 {{ currentShoppingUser
+                        }} 的個人帳本</div>
+                </div>
+                <div class="flex space-x-3 pt-2"><button @click="confirmBought"
+                        class="flex-1 bg-deep-blue text-white py-3 rounded-xl font-bold">確認</button><button
+                        @click="showBoughtModal = false"
+                        class="flex-none bg-gray-100 text-gray-500 px-4 py-3 rounded-xl">關閉</button></div>
+            </div>
+        </div>
+
+        <div v-if="showAddExpenseModal"
+            class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
+            @click.self="showAddExpenseModal = false">
+            <div class="bg-white w-full max-w-md rounded-t-3xl p-6 shadow-2xl animate-slide-up">
+                <h3 class="font-bold text-xl mb-4 text-center">新增{{ currentExpenseTab === 'group' ? '團體' : '個人' }}花費
+                </h3>
+                <div class="space-y-4">
+                    <div><label class="block text-xs text-gray-400 mb-1 ml-1">{{ currentExpenseTab === 'group' ? '誰預支的？'
+                            : '記在誰的帳上？' }}</label>
+                        <div class="flex space-x-2"><button v-for="user in users" :key="user"
+                                @click="newExpense.payer = user"
+                                :class="['flex-1 py-2 rounded-xl text-sm font-bold border-2', newExpense.payer === user ? 'border-deep-blue bg-blue-50 text-deep-blue' : 'border-gray-100 text-gray-400']">{{
+                                user }}</button></div>
+                    </div><input v-model="newExpense.name" placeholder="項目名稱"
+                        class="w-full p-3 bg-gray-50 rounded-xl"><input type="number" v-model="newExpense.amount"
+                        placeholder="金額 (NT$)" class="w-full p-3 bg-gray-50 rounded-xl text-lg font-bold"><button
+                        @click="addExpense"
+                        class="w-full bg-deep-blue text-white py-3 rounded-xl font-bold mt-2">記帳</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, watch, onMounted } = Vue;
+
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbz3lB4hJqJwiTDWyz0CzBLlf2Uwhp_BviIQdmaUXTrN1BLEeNQ2laO9Midm1K2xxX42/exec';
+
+        // Image Compression Helper (Aggressive)
+        const compressImage = (file, maxWidth = 500) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        // Calculate new dimensions
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > maxWidth) {
+                            height = Math.round(height * (maxWidth / width));
+                            width = maxWidth;
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.5)); // Low quality for storage
+                    };
+                };
+            });
+        };
+
+        // Debounce Helper
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func(...args), wait);
+            }
+        }
+
+        createApp({
+            setup() {
+                // Safe LocalStorage Parser
+                const safeParse = (key, defaultVal) => {
+                    try {
+                        const item = localStorage.getItem(key);
+                        return item ? JSON.parse(item) : defaultVal;
+                    } catch (e) {
+                        console.error('Core: Data load error for ' + key, e);
+                        return defaultVal;
+                    }
+                };
+
+                const currentTab = ref('itinerary');
+                const exchangeRate = ref(0.215);
+                const exchangeAmount = ref('');
+                const loadingRate = ref(false);
+                const isProcessingImage = ref(false); // New state
+                const syncStatus = ref('idle'); // idle, syncing, success, error
+                const users = ['A', 'B', 'C'];
+                const days = [
+                    { date: '30', weekday: 'Fri' }, { date: '31', weekday: 'Sat' },
+                    { date: '1', weekday: 'Sun' }, { date: '2', weekday: 'Mon' }, { date: '3', weekday: 'Tue' }
+                ];
+                const currentDayIndex = ref(0);
+                const categories = [
+                    { id: 'attraction', name: '景點', icon: 'fas fa-camera', color: 'text-pink-500', bg: 'bg-pink-100' },
+                    { id: 'food', name: '美食', icon: 'fas fa-utensils', color: 'text-orange-500', bg: 'bg-orange-100' },
+                    { id: 'shopping', name: '購物', icon: 'fas fa-shopping-bag', color: 'text-purple-500', bg: 'bg-purple-100' },
+                    { id: 'stay', name: '住宿', icon: 'fas fa-bed', color: 'text-indigo-500', bg: 'bg-indigo-100' },
+                    { id: 'flight', name: '航班', icon: 'fas fa-plane', color: 'text-blue-500', bg: 'bg-blue-100' },
+                    { id: 'transport', name: '交通', icon: 'fas fa-subway', color: 'text-gray-500', bg: 'bg-gray-100' },
+                    { id: 'other', name: '其他', icon: 'fas fa-star', color: 'text-yellow-500', bg: 'bg-yellow-100' },
+                ];
+
+                // DEFAULT DATA
+                const defaultItinerary = {
+                    0: [
+                        { id: 1, time: '06:40', category: 'flight', name: '抵達日本 (TR898)', location: '成田機場 (NRT)', note: '辦理入境、領行李', transTime: '0 min', transMode: 'walk' },
+                        { id: 2, time: '12:00', category: 'transport', name: '機場快線 Skyliner', location: '往京成上野方向', note: '車程約 41 分鐘', transTime: '80 min', transMode: 'train' },
+                        { id: 3, time: '12:45', category: 'food', name: '名代 宇奈とと', location: '上野店', note: '鰻魚飯便當', hours: '11:00-22:00', transTime: '5 min', transMode: 'walk' },
+                        { id: 4, time: '13:46', category: 'transport', name: '上越新幹線', location: '往越後湯澤', note: '需預訂', transTime: '60 min', transMode: 'train' },
+                        { id: 5, time: '14:50', category: 'stay', name: '越後之御宿 Inamoto', location: '車站西口', note: 'Check-in', transTime: '64 min', transMode: 'train' },
+                        { id: 6, time: '15:30', category: 'attraction', name: '清酒博物館', location: 'CoCoLo 湯澤', price: '¥500', ticket: '¥500', hours: '09:00-18:00', transTime: '5 min', transMode: 'walk' },
+                        { id: 7, time: '16:30', category: 'food', name: '燒肉 SAKAEYA', location: '人氣店', price: '¥6500', hours: '17:00-23:00', transTime: '10 min', transMode: 'walk' },
+                        { id: 8, time: '19:00', category: 'stay', name: 'Inamoto 溫泉', location: '飯店內', note: '休息/泡湯', transTime: '0 min', transMode: 'walk' }
+                    ],
+                    1: [
+                        { id: 21, time: '09:30', category: 'transport', name: '移動: 放行李', location: '往 櫻花亭', note: '計程車', transTime: '30 min', transMode: 'car' },
+                        { id: 22, time: '10:10', category: 'attraction', name: '採草莓體驗', location: '越後湯澤草莓園', price: '¥2600', transTime: '10 min', transMode: 'car' },
+                        { id: 23, time: '12:00', category: 'food', name: 'Pizzeria Pittore', location: '岩原滑雪場', note: '人氣披薩', transTime: '20 min', transMode: 'car' },
+                        { id: 24, time: '13:30', category: 'attraction', name: '岩原滑雪場', location: 'Iwappara', price: '¥14000', note: '滑雪特訓', transTime: '5 min', transMode: 'walk' },
+                        { id: 25, time: '18:40', category: 'food', name: '車站美食', location: '食脊屋/食家 あさくさ', note: '蕎麥麵/生魚片', transTime: '30 min', transMode: 'train' },
+                        { id: 26, time: '21:00', category: 'stay', name: '櫻花亭 (Sakura Tei)', location: 'Check-in', note: '', transTime: '20 min', transMode: 'car' },
+                    ],
+                    2: [
+                        { id: 31, time: '09:00', category: 'transport', name: '包車前往清津峽', location: '櫻花亭出發', price: '¥9500 (共)', transTime: '30 min', transMode: 'car' },
+                        { id: 32, time: '10:00', category: 'attraction', name: '清津峽 Tunnel of Light', location: '網美景點', price: '¥1000', transTime: '60 min', transMode: 'car' },
+                        { id: 33, time: '13:13', category: 'transport', name: '上越新幹線', location: '往東京', note: '回程', transTime: '90 min', transMode: 'train' },
+                        { id: 34, time: '14:35', category: 'food', name: 'HARBS 甜點 (外帶)', location: 'Parco_ya 上野店', note: '先回民宿冰', transTime: '80 min', transMode: 'train' },
+                        { id: 35, time: '14:40', category: 'stay', name: 'Ueno Retro Flower', location: '民宿 Check-in', note: 'Parco_ya 旁', transTime: '5 min', transMode: 'walk' },
+                        { id: 36, time: '15:00', category: 'shopping', name: '阿美橫町', location: '上野', note: '肉的大山、OS Drug', transTime: '10 min', transMode: 'walk' },
+                        { id: 37, time: '17:00', category: 'attraction', name: '東京巨蛋城', location: 'LaQua / 雲霄飛車', note: '看冬季點燈', transTime: '30 min', transMode: 'train' },
+                        { id: 38, time: '21:00', category: 'food', name: '備長 鰻魚飯 / 壽喜燒', location: '晴空塔', note: '晚餐', transTime: '40 min', transMode: 'train' },
+                    ],
+                    3: [
+                        { id: 41, time: '07:30', category: 'food', name: 'Komeda\'s Coffee', location: '上野廣小路店', note: '早餐', transTime: '15 min', transMode: 'walk' },
+                        { id: 42, time: '09:30', category: 'attraction', name: '哈利波特影城', location: '豐島園', note: '預計停留 4hr', transTime: '60 min', transMode: 'train' },
+                        { id: 43, time: '14:00', category: 'food', name: '嬉嬉豚炸豬排', location: '池袋', price: '¥3500', transTime: '40 min', transMode: 'train' },
+                        { id: 44, time: '14:50', category: 'shopping', name: 'mic21 潛水裝備 & 甜點', location: '池袋', note: 'RINGO 蘋果派', transTime: '10 min', transMode: 'walk' },
+                        { id: 45, time: '17:00', category: 'food', name: '金澤美味壽司', location: 'Parco_ya 6F', note: '上野', transTime: '30 min', transMode: 'train' },
+                        { id: 46, time: '18:00', category: 'shopping', name: 'Montbell', location: '御徒町店', note: '', transTime: '5 min', transMode: 'walk' },
+                        { id: 47, time: '20:00', category: 'shopping', name: '多慶屋 (TAKEYA)', location: '上野', note: '買伴手禮', transTime: '15 min', transMode: 'walk' },
+                        { id: 48, time: '22:00', category: 'food', name: '鴨to蔥 / 鳥貴族', location: '上野', price: '¥1500', note: '宵夜', transTime: '10 min', transMode: 'walk' },
+                    ],
+                    4: [
+                        { id: 51, time: '07:00', category: 'food', name: 'Denny\'s 家庭餐廳', location: '湯島店', note: '早餐', transTime: '10 min', transMode: 'walk' },
+                        { id: 52, time: '08:00', category: 'transport', name: 'Skyliner (08:20)', location: '京成上野 -> 成田', note: '⚠️ 絕不能遲到', transTime: '20 min', transMode: 'walk' },
+                        { id: 53, time: '09:05', category: 'flight', name: '成田機場 (TR899)', location: '第 1 航廈', note: '11:45 起飛', transTime: '45 min', transMode: 'train' },
+                        { id: 54, time: '09:20', category: 'shopping', name: 'Fa-So-La 免稅店', location: '機場管制區', note: '最後採買', transTime: '15 min', transMode: 'walk' },
+                    ]
+                };
+
+                // STORAGE INIT (TEST2)
+                const itineraryData = ref(safeParse('itineraryData_test2', defaultItinerary));
+                const shoppingList = ref(safeParse('shoppingList_test2', { 'A': [], 'B': [], 'C': [] }));
+                const groupExpenses = ref(safeParse('groupExpenses_test2', []));
+                const personalExpenses = ref(safeParse('personalExpenses_test2', { 'A': [], 'B': [], 'C': [] }));
+
+                const currentShoppingUser = ref(null);
+                const currentExpenseTab = ref('group');
+                const currentExpenseUser = ref(null);
+
+                // STATE
+                const showAddItineraryModal = ref(false);
+                const showAddShoppingModal = ref(false);
+                const showEditShoppingModal = ref(false);
+                const showBoughtModal = ref(false);
+                const showAddExpenseModal = ref(false);
+                const editingTransTime = ref(null);
+
+                const itineraryForm = ref({ id: null, dayIndex: 0, category: 'attraction', name: '', location: '', time: '', hours: '', ticket: '', note: '', price: '' });
+                const newShoppingItem = ref({ name: '', price: '', image: null });
+                const editingShoppingItem = ref(null);
+                const editingShoppingIndex = ref(-1);
+                const boughtForm = ref({ isBought: false, price: '' });
+                const newExpense = ref({ name: '', amount: '', payer: 'A' });
+                const selectedShoppingItem = ref(null);
+                const selectedShoppingIndex = ref(-1);
+
+                // COMPUTED
+                const currentDayItinerary = computed(() => itineraryData.value[currentDayIndex.value] || []);
+                const calculatedTWD = computed(() => !exchangeAmount.value ? 0 : Math.round(exchangeAmount.value * exchangeRate.value));
+                const totalGroupExpense = computed(() => groupExpenses.value.reduce((sum, item) => sum + Number(item.amount), 0));
+                const getPersonalTotal = (user) => personalExpenses.value[user].reduce((sum, item) => sum + Number(item.amount), 0);
+                const getCategoryStyle = (id) => categories.find(c => c.id === id) || categories[6];
+                const getPrevLocationName = (index) => index === 0 ? "前一晚住宿" : itineraryData.value[currentDayIndex.value][index - 1].name;
+
+                // Settlement Helpers
+                const getUserPrepaid = (user) => groupExpenses.value.filter(e => e.payer === user).reduce((acc, cur) => acc + Number(cur.amount), 0);
+                const getSettlement = (user) => {
+                    const share = totalGroupExpense.value / 3;
+                    const prepaid = getUserPrepaid(user);
+                    return Math.round(share - prepaid);
+                };
+
+                // METHODS
+                const openAddItinerary = () => { itineraryForm.value = { id: null, dayIndex: currentDayIndex.value, category: 'attraction', name: '', location: '', time: '', hours: '', ticket: '', note: '', price: '' }; showAddItineraryModal.value = true; };
+                const editItinerary = (item) => { itineraryForm.value = { ...item }; showAddItineraryModal.value = true; };
+                const saveItinerary = () => {
+                    const list = itineraryData.value[currentDayIndex.value];
+                    if (itineraryForm.value.id) {
+                        const index = list.findIndex(i => i.id === itineraryForm.value.id);
+                        if (index !== -1) list[index] = { ...list[index], ...itineraryForm.value };
+                    } else {
+                        list.push({ ...itineraryForm.value, id: Date.now(), transTime: '15 min', transMode: 'walk' });
+                    }
+                    showAddItineraryModal.value = false;
+                };
+                const deleteItinerary = () => { if (confirm("確定刪除？")) { const list = itineraryData.value[currentDayIndex.value]; const index = list.findIndex(i => i.id === itineraryForm.value.id); if (index !== -1) list.splice(index, 1); showAddItineraryModal.value = false; } };
+
+                const dragStart = (event, index) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.dropEffect = 'move'; event.dataTransfer.setData('text/plain', index); event.target.classList.add('dragging'); };
+                const dragEnd = (event) => { event.target.classList.remove('dragging'); };
+                const drop = (event, dropIndex) => {
+                    const text = event.dataTransfer.getData('text/plain');
+                    if (text === '') return;
+                    const dragIndex = parseInt(text);
+                    if (isNaN(dragIndex) || dragIndex === dropIndex) return;
+                    const list = itineraryData.value[currentDayIndex.value];
+                    const item = list.splice(dragIndex, 1)[0];
+                    list.splice(dropIndex, 0, item);
+                };
+
+                const toggleTransEdit = (index) => { editingTransTime.value = (editingTransTime.value && editingTransTime.value.index === index) ? null : { dayIndex: currentDayIndex.value, index }; };
+                const fetchExchangeRate = async () => { loadingRate.value = true; try { const res = await fetch('https://api.exchangerate-api.com/v4/latest/JPY'); const data = await res.json(); if (data?.rates?.TWD) exchangeRate.value = data.rates.TWD; } catch (e) { console.error(e); } finally { loadingRate.value = false; } };
+
+                const handleImageUpload = async (event) => {
+                    const file = event.target.files[0];
+                    if (file) {
+                        isProcessingImage.value = true;
+                        try {
+                            newShoppingItem.value.image = await compressImage(file);
+                        } finally {
+                            isProcessingImage.value = false;
+                        }
+                    }
+                };
+                const addShoppingItem = () => {
+                    if (isProcessingImage.value) return; // Prevent add while processing
+                    if (!newShoppingItem.value.name) return;
+                    shoppingList.value[currentShoppingUser.value].push({ name: newShoppingItem.value.name, price: newShoppingItem.value.price, image: newShoppingItem.value.image, bought: false });
+                    showAddShoppingModal.value = false;
+                    newShoppingItem.value = { name: '', price: '', image: null };
+                };
+                const openEditShopping = (item, index) => { editingShoppingItem.value = { ...item }; editingShoppingIndex.value = index; showEditShoppingModal.value = true; };
+                const saveShoppingEdit = () => { shoppingList.value[currentShoppingUser.value][editingShoppingIndex.value] = { ...editingShoppingItem.value }; showEditShoppingModal.value = false; };
+                const deleteShoppingItem = () => { if (confirm("刪除？")) { shoppingList.value[currentShoppingUser.value].splice(editingShoppingIndex.value, 1); showEditShoppingModal.value = false; } };
+                const openBoughtModal = (item, index) => { selectedShoppingItem.value = item; selectedShoppingIndex.value = index; boughtForm.value = { isBought: item.bought, price: item.price || '' }; showBoughtModal.value = true; };
+                const confirmBought = () => {
+                    const user = currentShoppingUser.value;
+                    const item = shoppingList.value[user][selectedShoppingIndex.value];
+                    item.bought = boughtForm.value.isBought;
+                    if (item.bought && boughtForm.value.price) {
+                        item.boughPrice = boughtForm.value.price;
+                        personalExpenses.value[user].push({ name: item.name, amount: boughtForm.value.price, date: new Date().toISOString().split('T')[0] });
+                        alert(`已記帳 NT$${boughtForm.value.price}`);
+                    } else if (!item.bought) {
+                        item.boughPrice = null; // Clear price if unchecked
+                    }
+                    showBoughtModal.value = false;
+                };
+
+                const addExpense = () => { if (!newExpense.value.name || !newExpense.value.amount) return; if (currentExpenseTab.value === 'group') { groupExpenses.value.push({ name: newExpense.value.name, amount: newExpense.value.amount, payer: newExpense.value.payer }); } else { const targetUser = currentExpenseUser.value || newExpense.value.payer; personalExpenses.value[targetUser].push({ name: newExpense.value.name, amount: newExpense.value.amount, date: new Date().toISOString().split('T')[0] }); } showAddExpenseModal.value = false; newExpense.value = { name: '', amount: '', payer: users[0] }; };
+                const deleteGroupExpense = (item) => { const idx = groupExpenses.value.indexOf(item); if (idx > -1 && confirm("刪除？")) groupExpenses.value.splice(idx, 1); };
+                const deletePersonalExpense = (user, index) => { if (confirm("刪除？")) personalExpenses.value[user].splice(index, 1); };
+                const openGoogleMaps = (name) => { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`, '_blank'); };
+
+                // AUTO SYNC LOGIC
+                const fetchFromCloud = async () => {
+                    syncStatus.value = 'syncing';
+                    try {
+                        const res = await fetch(GAS_URL + '?action=read', { method: 'GET', redirect: 'follow' });
+                        const data = await res.json();
+                        if (data.itineraryData_test2) itineraryData.value = data.itineraryData_test2;
+                        if (data.shoppingList_test2) shoppingList.value = data.shoppingList_test2;
+                        if (data.groupExpenses_test2) groupExpenses.value = data.groupExpenses_test2;
+                        if (data.personalExpenses_test2) personalExpenses.value = data.personalExpenses_test2;
+                        syncStatus.value = 'success';
+                        console.log('Loaded from cloud');
+                    } catch (e) {
+                        console.error('Cloud load fail', e);
+                        syncStatus.value = 'error';
+                    }
+                };
+
+                const syncToCloud = async () => {
+                    syncStatus.value = 'syncing';
+                    const payload = {
+                        itineraryData_test2: itineraryData.value,
+                        shoppingList_test2: shoppingList.value,
+                        groupExpenses_test2: groupExpenses.value,
+                        personalExpenses_test2: personalExpenses.value
+                    };
+                    try {
+                        // GAS requires text/plain for CORS simplicity often, but we handle standard requests
+                        await fetch(GAS_URL, {
+                            method: 'POST',
+                            mode: 'no-cors', // Important for GAS opaque response
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify(payload)
+                        });
+                        // Because mode: no-cors returns opaque, we assume success if no error thrown
+                        syncStatus.value = 'success';
+                    } catch (e) {
+                        console.error('Cloud save fail', e);
+                        syncStatus.value = 'error';
+                    }
+                };
+
+                const debouncedSync = debounce(syncToCloud, 2000); // Wait 2s after changes
+
+                onMounted(() => {
+                    fetchExchangeRate();
+                    fetchFromCloud(); // Initial Load
+                });
+
+                watch([itineraryData, shoppingList, groupExpenses, personalExpenses], () => {
+                    // Local Persist
+                    try {
+                        localStorage.setItem('itineraryData_test2', JSON.stringify(itineraryData.value));
+                        localStorage.setItem('shoppingList_test2', JSON.stringify(shoppingList.value));
+                        localStorage.setItem('groupExpenses_test2', JSON.stringify(groupExpenses.value));
+                        localStorage.setItem('personalExpenses_test2', JSON.stringify(personalExpenses.value));
+                    } catch (e) {
+                        console.error('LocalStorage Limit Exceeded!', e);
+                        // Continue to Cloud Sync even if LocalStorage fails
+                    }
+
+                    // Cloud Sync
+                    syncStatus.value = 'syncing'; // Immediate feedback
+                    debouncedSync();
+                }, { deep: true });
+
+                return {
+                    currentTab, tabs: [{ id: 'itinerary', icon: 'fas fa-map-marked-alt' }, { id: 'info', icon: 'fas fa-info' }, { id: 'shopping', icon: 'fas fa-shopping-basket' }, { id: 'expenses', icon: 'fas fa-yen-sign' }],
+                    days, currentDayIndex, currentDayItinerary, categories, getCategoryStyle, exchangeRate, exchangeAmount, calculatedTWD, loadingRate, users, groupExpenses, personalExpenses,
+                    itineraryData, itineraryForm, showAddItineraryModal, openAddItinerary, editItinerary, saveItinerary, deleteItinerary, dragStart, dragEnd, drop, editingTransTime, toggleTransEdit, getPrevLocationName,
+                    shoppingList, currentShoppingUser, showAddShoppingModal, newShoppingItem, handleImageUpload, addShoppingItem, showEditShoppingModal, editingShoppingItem, saveShoppingEdit, deleteShoppingItem, openEditShopping, showBoughtModal, selectedShoppingItem, boughtForm, openBoughtModal, confirmBought,
+                    currentExpenseTab, currentExpenseUser, totalGroupExpense, getPersonalTotal, showAddExpenseModal, newExpense, addExpense, deleteGroupExpense, deletePersonalExpense, openGoogleMaps,
+                    getUserPrepaid, getSettlement,
+                    syncStatus, syncToCloud, isProcessingImage // Exposed text
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>
